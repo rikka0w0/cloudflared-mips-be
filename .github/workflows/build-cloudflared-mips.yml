@@ -1,0 +1,101 @@
+name: Build cloudflared for MIPS Big Endian
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build cloudflared MIPS BE softfloat
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------
+      # Install the exact Go version
+      # Equivalent to manually installing Go 1.22.12 under /usr/local
+      # ------------------------------------------------------------
+      - name: Set up Go 1.22.12
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.12"
+          cache: false
+
+      - name: Check Go version
+        run: |
+          go version
+          go env
+
+      # ------------------------------------------------------------
+      # Pull the latest cloudflared source
+      # ------------------------------------------------------------
+      - name: Clone latest cloudflared source
+        run: |
+          git clone --depth 1 https://github.com/cloudflare/cloudflared.git
+          cd cloudflared
+
+          echo "cloudflared source commit:"
+          git rev-parse HEAD
+
+          echo
+          echo "go.mod:"
+          head -5 go.mod
+
+      # ------------------------------------------------------------
+      # Build
+      #
+      # GOARCH=mips      -> 32-bit MIPS big endian
+      # GOMIPS=softfloat -> no hardware FPU required
+      # CGO_ENABLED=0    -> static Go binary
+      # GOTOOLCHAIN=local prevents Go from silently downloading
+      # another compiler/toolchain
+      # ------------------------------------------------------------
+      - name: Build cloudflared
+        working-directory: cloudflared
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          VER="git-$(git rev-parse --short=12 HEAD)"
+
+          echo "Building cloudflared version: ${VER}"
+
+          CGO_ENABLED=0 \
+          GOOS=linux \
+          GOARCH=mips \
+          GOMIPS=softfloat \
+          GOTOOLCHAIN=local \
+          go build \
+            -mod=readonly \
+            -trimpath \
+            -tags "netgo osusergo" \
+            -ldflags="-s -w -buildid= -X main.Version=${VER}" \
+            -o cloudflared-mips-be \
+            ./cmd/cloudflared
+
+      # ------------------------------------------------------------
+      # Verify output
+      # ------------------------------------------------------------
+      - name: Check binary
+        working-directory: cloudflared
+        run: |
+          set -eux
+
+          file cloudflared-mips-be
+          ls -lh cloudflared-mips-be
+
+          sha256sum cloudflared-mips-be \
+            > cloudflared-mips-be.sha256
+
+          cat cloudflared-mips-be.sha256
+
+      # ------------------------------------------------------------
+      # Upload GitHub Actions artifact
+      # ------------------------------------------------------------
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflared-linux-mips-be-softfloat
+          path: |
+            cloudflared/cloudflared-mips-be
+            cloudflared/cloudflared-mips-be.sha256
+          if-no-files-found: error
+          retention-days: 30
