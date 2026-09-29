@@ -1,17 +1,16 @@
-name: Build cloudflared for MIPS Big Endian
+name: Build cloudflared 2025.5.0 for MIPS Big Endian
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build cloudflared MIPS BE softfloat
+    name: Build cloudflared 2025.5.0 MIPS BE softfloat
     runs-on: ubuntu-latest
 
     steps:
       # ------------------------------------------------------------
-      # Install the exact Go version
-      # Equivalent to manually installing Go 1.22.12 under /usr/local
+      # Install exact Go version
       # ------------------------------------------------------------
       - name: Set up Go 1.22.12
         uses: actions/setup-go@v5
@@ -25,15 +24,23 @@ jobs:
           go env
 
       # ------------------------------------------------------------
-      # Pull the latest cloudflared source
+      # Pull cloudflared 2025.5.0
       # ------------------------------------------------------------
-      - name: Clone latest cloudflared source
+      - name: Clone cloudflared 2025.5.0
         run: |
-          git clone --depth 1 https://github.com/cloudflare/cloudflared.git
+          git clone \
+            --depth 1 \
+            --branch 2025.5.0 \
+            https://github.com/cloudflare/cloudflared.git
+
           cd cloudflared
 
           echo "cloudflared source commit:"
           git rev-parse HEAD
+
+          echo
+          echo "cloudflared version/tag:"
+          git describe --tags --always
 
           echo
           echo "go.mod:"
@@ -43,10 +50,9 @@ jobs:
       # Build
       #
       # GOARCH=mips      -> 32-bit MIPS big endian
-      # GOMIPS=softfloat -> no hardware FPU required
-      # CGO_ENABLED=0    -> static Go binary
-      # GOTOOLCHAIN=local prevents Go from silently downloading
-      # another compiler/toolchain
+      # GOMIPS=softfloat -> software floating point
+      # CGO_ENABLED=0    -> no CGO dependency
+      # GOTOOLCHAIN=local ensures Go 1.22.12 is actually used
       # ------------------------------------------------------------
       - name: Build cloudflared
         working-directory: cloudflared
@@ -54,9 +60,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          VER="git-$(git rev-parse --short=12 HEAD)"
-
-          echo "Building cloudflared version: ${VER}"
+          VER="2025.5.0"
 
           CGO_ENABLED=0 \
           GOOS=linux \
@@ -88,12 +92,12 @@ jobs:
           cat cloudflared-mips-be.sha256
 
       # ------------------------------------------------------------
-      # Upload GitHub Actions artifact
+      # Upload artifact
       # ------------------------------------------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cloudflared-linux-mips-be-softfloat
+          name: cloudflared-2025.5.0-linux-mips-be-softfloat
           path: |
             cloudflared/cloudflared-mips-be
             cloudflared/cloudflared-mips-be.sha256
