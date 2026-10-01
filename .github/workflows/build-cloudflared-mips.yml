@@ -1,21 +1,21 @@
-name: Build cloudflared 2025.5.0 for MIPS Big Endian
+name: Build cloudflared 2022.10.3 for Linux 2.6.30 MIPS Big Endian
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build cloudflared 2025.5.0 MIPS BE softfloat
+    name: Build cloudflared 2022.10.3 MIPS BE softfloat
     runs-on: ubuntu-latest
 
     steps:
       # ------------------------------------------------------------
       # Install exact Go version
       # ------------------------------------------------------------
-      - name: Set up Go 1.22.12
+      - name: Set up Go 1.18.10
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22.12"
+          go-version: "1.18.10"
           cache: false
 
       - name: Check Go version
@@ -24,13 +24,13 @@ jobs:
           go env
 
       # ------------------------------------------------------------
-      # Pull cloudflared 2025.5.0
+      # Pull cloudflared 2022.10.3
       # ------------------------------------------------------------
-      - name: Clone cloudflared 2025.5.0
+      - name: Clone cloudflared 2022.10.3
         run: |
           git clone \
             --depth 1 \
-            --branch 2025.5.0 \
+            --branch 2022.10.3 \
             https://github.com/cloudflare/cloudflared.git
 
           cd cloudflared
@@ -52,7 +52,8 @@ jobs:
       # GOARCH=mips      -> 32-bit MIPS big endian
       # GOMIPS=softfloat -> software floating point
       # CGO_ENABLED=0    -> no CGO dependency
-      # GOTOOLCHAIN=local ensures Go 1.22.12 is actually used
+      # Go 1.18 still supports Linux 2.6.30-era kernels better than newer
+      # runtimes.  Do not enable CGO: the target firmware has an old userland.
       # ------------------------------------------------------------
       - name: Build cloudflared
         working-directory: cloudflared
@@ -60,13 +61,12 @@ jobs:
         run: |
           set -euxo pipefail
 
-          VER="2025.5.0"
+          VER="2022.10.3"
 
           CGO_ENABLED=0 \
           GOOS=linux \
           GOARCH=mips \
           GOMIPS=softfloat \
-          GOTOOLCHAIN=local \
           go build \
             -mod=readonly \
             -trimpath \
@@ -97,7 +97,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cloudflared-2025.5.0-linux-mips-be-softfloat
+          name: cloudflared-2022.10.3-linux-2.6.30-mips-be-softfloat
           path: |
             cloudflared/cloudflared-mips-be
             cloudflared/cloudflared-mips-be.sha256
